@@ -1,0 +1,3 @@
+C:\Users\m034570\OneDrive - Mayo Clinic\Claude\web-app-to-manage-daily-extract\dist\appsettings.json
+C:\Users\m034570\OneDrive - Mayo Clinic\Claude\web-app-to-manage-daily-extract\dist\ExtractConsole.pdb
+C:\Users\m034570\OneDrive - Mayo Clinic\Claude\web-app-to-manage-daily-extract\dist\ExtractConsole.exe

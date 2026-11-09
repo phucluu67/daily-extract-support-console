@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ExtractConsole</RootNamespace>
+    <AssemblyName>ExtractConsole</AssemblyName>
+
+    <!-- Microsoft.Data.SqlClient throws "Globalization Invariant Mode is not supported"
+         at the first connection, so this stays false however tempting the size saving. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- Single self-contained .exe: no install, no admin, no runtime prerequisite. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+    <!-- Trimming is deliberately OFF: Microsoft.Data.SqlClient is not trim-safe
+         (it reflects over configuration providers and auth types). A ~70 MB exe
+         that works beats a 30 MB one that throws at the first connection. -->
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- The front end is embedded in the assembly so the published output really is
+         one exe. appsettings.json stays a loose file on purpose - it has to be
+         editable without a rebuild. -->
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+
+    <!-- This never runs under IIS and never serves assets from disk, so neither the
+         web.config transform nor the static-web-assets manifest is wanted next to
+         the exe. -->
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="wwwroot\**" />
+    <EmbeddedResource Include="wwwroot\**" />
+  </ItemGroup>
+
+</Project>

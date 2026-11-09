@@ -1,0 +1,64 @@
+{
+  "//": "Config used only by Invoke-IntegrationTest.ps1. Points at the disposable fixture job, never the real extract.",
+  "PollSeconds": 5,
+  "AuditLogPath": "%TEMP%\\ExtractConsole-selftest\\audit.log",
+
+  "Environments": [
+    {
+      "Name": "SELFTEST",
+      "Enabled": true,
+      "IsDefault": true,
+      "ControlServer": "roeeps914q,57015",
+      "DataServer": "ropeps913l01\\epsidev",
+      "DataDatabase": "EPSI_ODS",
+      "AuditDatabase": "STRATA_AUDIT",
+      "DiagnosticsServer": "",
+      "DiagnosticsDatabase": "EpsiSsisHost",
+      "FileShare": "\\\\ropeps913L01\\FTP\\Strata",
+      "JobName": "ZZ_ExtractConsole_SelfTest",
+      "ChildJobs": [],
+      "DisabledSteps": [],
+      "ReconTables": [],
+      "TrustServerCertificate": true,
+      "ConnectTimeoutSeconds": 15,
+      "CommandTimeoutSeconds": 60
+    },
+    {
+      "//": "Same fixture job, flagged as production, so the extra confirmation gate can be tested without touching the real PROD extract.",
+      "Name": "SELFTEST_PROD",
+      "Enabled": true,
+      "IsProduction": true,
+      "ControlServer": "roeeps914q,57015",
+      "DataServer": "ropeps913l01\\epsidev",
+      "DataDatabase": "EPSI_ODS",
+      "DiagnosticsServer": "",
+      "DiagnosticsDatabase": "EpsiSsisHost",
+      "FileShare": "\\\\ropeps913L01\\FTP\\Strata",
+      "JobName": "ZZ_ExtractConsole_SelfTest",
+      "ChildJobs": [],
+      "DisabledSteps": [],
+      "ReconTables": [],
+      "TrustServerCertificate": true,
+      "ConnectTimeoutSeconds": 15,
+      "CommandTimeoutSeconds": 60
+    },
+    {
+      "//": "Declared but switched off, so --check can be proved to fail loudly rather than check nothing and exit green.",
+      "Name": "SELFTEST_DISABLED",
+      "Enabled": false,
+      "ControlServer": "roeeps914q,57015",
+      "DataServer": "ropeps913l01\\epsidev",
+      "JobName": "ZZ_ExtractConsole_SelfTest",
+      "ChildJobs": [],
+      "DisabledSteps": [],
+      "ReconTables": []
+    }
+  ],
+
+  "//Check": "Recipients deliberately empty - the tests must never send mail.",
+  "Check": {
+    "Recipients": "",
+    "MaxHoursSinceRun": 26,
+    "CountRecords": false
+  }
+}

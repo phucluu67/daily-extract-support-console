@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extract console - CLARITY to STRATAJAZZ</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <div class="brand">
+      <h1>DAILY EXTRACT CONSOLE</h1>
+      <div class="sub" id="brandSub">CLARITY &rarr; STRATAJAZZ</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="sub" id="whoami"></div>
+    <button class="ghost" id="themeBtn" title="Switch between light and dark">Theme</button>
+  </header>
+
+  <div id="banners"></div>
+
+  <!-- One filter row above everything it scopes. -->
+  <div class="filters">
+    <label for="envSel">Environment</label>
+    <select id="envSel"></select>
+
+    <label for="dateSel">Extract date</label>
+    <input type="date" id="dateSel">
+
+    <label for="histSel">History</label>
+    <select id="histSel">
+      <option value="20">last 20 runs</option>
+      <option value="40" selected>last 40 runs</option>
+      <option value="90">last 90 runs</option>
+      <option value="200">last 200 runs</option>
+    </select>
+
+    <div class="spacer"></div>
+    <span class="sub" id="lastRefresh"></span>
+    <button id="refreshBtn">Refresh</button>
+    <label class="sub"><input type="checkbox" id="autoChk" checked> auto</label>
+  </div>
+
+  <!-- ==== current run ==================================================== -->
+  <section class="card" id="heroCard">
+    <h2>Current state</h2>
+    <div id="heroBody"><div class="empty">Loading&hellip;</div></div>
+  </section>
+
+  <!-- ==== steps ========================================================== -->
+  <section class="card" id="stepsCard">
+    <h2>Steps</h2>
+    <p class="hint">Click a step for its error text and the child jobs it launches.</p>
+    <div class="steps" id="stepsBody"><div class="empty">Loading&hellip;</div></div>
+  </section>
+
+  <!-- ==== tabs =========================================================== -->
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true"  data-tab="history">Run history</button>
+    <button role="tab" aria-selected="false" data-tab="volume">Extract volume</button>
+    <button role="tab" aria-selected="false" data-tab="recon">Counts &amp; reconciliation</button>
+    <button role="tab" aria-selected="false" data-tab="files">Transferred files</button>
+    <button role="tab" aria-selected="false" data-tab="upserts">Recon_Current upserts</button>
+    <button role="tab" aria-selected="false" data-tab="adhoc">AdHoc lists</button>
+    <button role="tab" aria-selected="false" data-tab="ssis">SSIS package</button>
+    <button role="tab" aria-selected="false" data-tab="diagnostics">Known failures</button>
+  </div>
+
+  <section class="card tabpane" id="tab-history">
+    <h2>Run duration</h2>
+    <p class="hint">
+      One bar per run, oldest at the left. The table underneath is the same data in text -
+      every value here is readable without hovering.
+    </p>
+    <div id="durationChart"></div>
+    <div class="scroll" style="margin-top:18px">
+      <table id="historyTable">
+        <thead>
+          <tr>
+            <th>Started</th><th>Outcome</th><th class="num">Duration</th>
+            <th>Failed step</th><th>Invoked by</th><th></th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card tabpane" id="tab-volume" hidden>
+    <h2>Extract volume</h2>
+    <p class="hint">
+      Rows each staging package pulled per day, from <span class="mono" id="volLocation"></span>.
+      Where a day had several runs, the last <em>successful</em> one counts &mdash; the load that
+      stuck. The line joins days that loaded data; a day that <strong>succeeded with 0 rows</strong>
+      is marked <span class="vol-zero-key" aria-hidden="true">&#x2715;</span> on the baseline
+      instead, and a day with no successful run is a gap.
+    </p>
+
+    <!-- One filter row above everything it scopes: presets first, then a custom range. -->
+    <div class="filters vol-filters" role="group" aria-label="Date range">
+      <div class="seg" id="volPresets">
+        <button type="button" data-days="30">Last 30 days</button>
+        <button type="button" data-days="90">Last 90 days</button>
+        <button type="button" data-days="180">Last 180 days</button>
+        <button type="button" data-days="all">All</button>
+      </div>
+      <label for="volFrom">From</label>
+      <input type="date" id="volFrom">
+      <label for="volTo">To</label>
+      <input type="date" id="volTo">
+      <button type="button" id="volApply">Apply</button>
+      <span class="sub" id="volSpan"></span>
+    </div>
+
+    <div id="volBody">
+      <div id="volZeroBanner"></div>
+
+      <h3 class="subhead" style="margin-top:6px">All ten datasets, rows per day</h3>
+      <div class="vol-chart vol-hero" id="volTotal"></div>
+
+      <h3 class="subhead" style="margin-top:22px">By dataset</h3>
+      <p class="sub" style="margin:0 0 8px">
+        <em>Typical day</em> is the median of days that loaded data, so a one-off full reload
+        doesn't pass for normal volume. <em>Last 7 vs prior 7</em> compares the averages of the
+        last seven loading days with the seven before them &mdash; the early sign of an influx.
+      </p>
+      <div class="scroll">
+        <table id="volSummary">
+          <thead>
+            <tr>
+              <th>Dataset</th>
+              <th class="num">Latest</th>
+              <th class="num">Typical day</th>
+              <th class="num">Peak</th>
+              <th class="num">Last 7 vs prior 7</th>
+              <th class="num" title="Days a run succeeded and reported 0 rows.">0-row days</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="legend" style="margin-top:18px">
+        <span class="key"><span class="linekey"></span><span>Rows per day</span></span>
+        <span class="key"><span class="vol-zero-key" aria-hidden="true">&#x2715;</span><span>Succeeded with 0 rows</span></span>
+        <span class="sub">Each panel is on its own scale &mdash; volumes differ about 1,000-fold.</span>
+      </div>
+      <div class="vol-grid" id="volGrid"></div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button type="button" id="volTableBtn" aria-expanded="false">Show as table</button>
+      </div>
+      <div class="scroll" id="volTableWrap" hidden style="margin-top:10px">
+        <table id="volTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="vol-tip" id="volTip" role="status" aria-live="polite" hidden></div>
+  </section>
+
+  <section class="card tabpane" id="tab-recon" hidden>
+    <h2>Counts &amp; reconciliation</h2>
+    <p class="hint">
+      ODS recon table rows against the counts the extract wrote to
+      <span class="mono" id="shareHint"></span>. <em>Declared to Strata</em> is the figure from
+      <span class="mono">MayoClinic_filecounts_MMddyyyy.txt</span> &mdash; the same file Strata
+      receives. The extract computes it with <span class="mono">ReadLine()</span>, so it counts
+      physical lines, which only equals the record count while no field holds an embedded line
+      break. Table rows are metadata counts by default (instant); exact counts scan the tables.
+    </p>
+    <div id="reconStale"></div>
+    <div class="btn-row" style="margin-bottom:12px">
+      <button id="exactBtn">Get exact row counts</button>
+      <button id="recordsBtn" title="Reads each file and counts records rather than lines. Hundreds of MB &mdash; can take a minute.">Count records in files</button>
+      <span class="sub" id="reconMode">metadata counts</span>
+    </div>
+    <div class="scroll">
+      <table id="reconTable">
+        <thead>
+          <tr>
+            <th>Dataset</th><th>Status</th><th class="num">Table rows</th>
+            <th class="num" title="The count shipped to Strata in MayoClinic_filecounts_MMddyyyy.txt. The extract computes it with ReadLine(), so it is a count of PHYSICAL LINES, not records.">Declared to Strata</th>
+            <th class="num" title="Records actually in the file, counted by this console.">Actual records</th>
+            <th class="num">Difference</th><th>Written</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:12px">
+      Two separate questions. <strong>Did every row reach the file?</strong> &mdash; answered by the
+      record count. <strong>Is the file well formed?</strong> &mdash; answered by lines matching
+      records. A row stays amber while its records are split across lines even though the counts
+      reconcile, because the file is still wrong for anything that reads it one line at a time.
+      <br>
+      Note that without <em>Count records in files</em> the comparison is line-based, and a
+      line-based <em>Match</em> is not proof: missing records and split records can cancel out.
+      Press the button to settle it.
+    </p>
+  </section>
+
+  <section class="card tabpane" id="tab-files" hidden>
+    <h2>Transferred files</h2>
+    <p class="hint">
+      What CLEO actually moved on the selected date, from
+      <span class="mono" id="archiveHint"></span> &mdash; the durable record of what Strata
+      received, and what it sent back. <strong>OUT</strong> is to Strata,
+      <strong>IN</strong> is from Strata. The staging folder the extract writes to is
+      emptied by the pickup, so it is not what this lists.
+    </p>
+    <div id="filesSummary"></div>
+    <div class="scroll" style="margin-top:12px">
+      <table id="filesTable">
+        <thead>
+          <tr><th>Direction</th><th>File</th><th class="num">Size</th><th>Transferred</th></tr>
+        </thead>
+        <tbody><tr><td colspan="4" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card tabpane" id="tab-upserts" hidden>
+    <h2>Recon_Current upserts</h2>
+    <p class="hint">
+      What the extract's <em>Upsert Process for Recon_Current Tables</em> step did, from
+      <span class="mono" id="upsertLocation"></span>. One row per dataset per day.
+      <strong>Table rows are not repeated here</strong> &mdash; the source count is the same
+      figure the reconciliation tab already shows. What this adds is how that total divided
+      into <em>updates</em> and <em>inserts</em>, when each dataset finished, and the error
+      text when one did not.
+    </p>
+
+    <div id="upsertFailures"></div>
+    <div id="upsertSummary"></div>
+
+    <div class="btn-row" style="margin-bottom:12px">
+      <label for="upsertDate" class="sub">Day</label>
+      <select id="upsertDate"></select>
+      <span class="sub" id="upsertSpan"></span>
+    </div>
+
+    <div class="scroll">
+      <table id="upsertTable">
+        <thead>
+          <tr>
+            <th>Dataset</th><th>Status</th>
+            <th class="num" title="Existing rows the upsert changed.">Updated</th>
+            <th class="num" title="Rows the upsert added.">Inserted</th>
+            <th class="num">Total</th>
+            <th title="How the day's total split between updates and inserts.">Split</th>
+            <th>Finished</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:22px">Updates and inserts over time</h2>
+    <p class="hint">
+      The reason the whole history is kept rather than just today. A total on its own says
+      very little; the same total arriving as nearly all inserts, when yesterday it was
+      mostly updates, says the dataset was re-keyed or rebuilt. Newest day on the right.
+    </p>
+    <div id="upsertTrends"></div>
+  </section>
+
+  <section class="card tabpane" id="tab-adhoc" hidden>
+    <h2>AdHoc lists</h2>
+    <p class="hint">
+      The <span class="mono">AdhocHARList - *.csv</span> files in <span class="mono" id="adhocShare"></span>
+      that the next extract re-pulls for data correction. Near the end of each run, step 14
+      <strong>replaces</strong> the HB and PB Encounter lists with the missing parents it found.
+      Extra entries &mdash; from Finance, say &mdash; are <strong>appended</strong> here between runs,
+      and the next day's extract picks up everything. Changes are refused while the extract
+      is running: anything written then is either read too late or replaced by step 14.
+    </p>
+    <div id="adhocRunning"></div>
+
+    <div class="scroll">
+      <table id="adhocTable">
+        <thead>
+          <tr>
+            <th>List</th><th>Columns</th><th class="num">Entries</th><th>Last changed</th><th></th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="5" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+
+    <div id="adhocDetail" hidden style="margin-top:20px">
+      <h2 id="adhocTitle"></h2>
+      <p class="sub" id="adhocMeta"></p>
+
+      <div class="grid-2">
+        <div id="adhocChangeCol">
+          <h3 class="subhead">Change this list</h3>
+          <div class="btn-row" role="radiogroup" aria-label="Change type" style="margin-bottom:8px">
+            <label><input type="radio" name="adhocMode" value="append" checked> Append</label>
+            <label><input type="radio" name="adhocMode" value="remove"> Remove</label>
+          </div>
+          <p class="sub" id="adhocFormatHint"></p>
+          <textarea id="adhocInput" rows="8" spellcheck="false" class="mono"
+                    placeholder="One entry per line"></textarea>
+          <div class="btn-row" style="margin-top:8px">
+            <label class="sub" for="adhocFile">or upload</label>
+            <input type="file" id="adhocFile" accept=".csv,.txt,.xlsx,.xls">
+            <button id="adhocClearInput" type="button">Clear</button>
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button id="adhocPreview" type="button">Preview</button>
+            <button id="adhocCommit" type="button" disabled></button>
+          </div>
+          <div id="adhocResult" style="margin-top:12px"></div>
+        </div>
+
+        <div>
+          <h3 class="subhead">What is in it</h3>
+          <div class="btn-row" style="margin-bottom:8px">
+            <input type="search" id="adhocSearch" placeholder="Find an ID" class="mono">
+            <button id="adhocSearchBtn" type="button">Find</button>
+          </div>
+          <div id="adhocMatches"></div>
+          <p class="sub" id="adhocTailLabel"></p>
+          <pre class="adhoc-tail mono" id="adhocTail"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card tabpane" id="tab-ssis" hidden>
+    <h2>SSIS packages in this run</h2>
+    <p class="hint">
+      Every package the extract runs &mdash; the one in the parent job plus those its child
+      jobs launch &mdash; matched to the selected run. The list comes from the jobs' own SSIS
+      step definitions, so it follows the jobs. Click a row for its catalog errors and warnings.
+    </p>
+    <div id="ssisSummary"></div>
+    <div class="scroll" style="margin-top:12px">
+      <table id="ssisTable">
+        <thead>
+          <tr>
+            <th>Launched by</th><th>Package</th><th>Status</th>
+            <th>Started</th><th class="num">Duration</th><th>Project</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+    <div id="ssisMessages"></div>
+  </section>
+
+  <section class="card tabpane" id="tab-diagnostics" hidden>
+    <h2>Known failures</h2>
+    <p class="hint">
+      A shared catalogue of what this job's errors mean and what to do about them, held in
+      <span class="mono" id="diagLocation"></span> so the whole team reads the same thing.
+      When a step fails and a rule matches, the explanation appears <strong>on that step</strong> &mdash;
+      you should rarely need this tab. It is here to curate the rules and to show the failures
+      that <em>no</em> rule explains yet.
+    </p>
+    <div id="diagSummary"></div>
+
+    <h2 style="margin-top:20px">Recent failures</h2>
+    <p class="hint">
+      Every failure of this job or its child jobs in the last 90 days, grouped by distinct
+      error. Anything <em>not yet explained</em> is a rule waiting to be written &mdash; click
+      <em>Add rule</em> on it.
+    </p>
+    <div class="btn-row" id="diagFilter" style="margin-bottom:10px"></div>
+    <div class="scroll" style="max-height:420px">
+      <table id="failuresTable">
+        <thead>
+          <tr>
+            <th class="num">Times</th><th>Last seen</th><th>Job</th><th>Step</th>
+            <th>Error</th><th>Explanation</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:20px">Catalogue</h2>
+    <p class="hint">
+      Ordered the way matching happens: <strong>lowest priority number wins</strong> when more
+      than one rule could match an error, so the specific rules sit above the catch-all.
+      <em>Rule</em> is the identifier &mdash; it is what "rule #N" refers to elsewhere, not a
+      position in this list.
+    </p>
+    <div class="scroll">
+      <table id="rulesTable">
+        <thead>
+          <tr>
+            <th class="num">Rule</th><th class="num">Priority</th><th>Title</th>
+            <th>Matches on</th><th class="num">Seen (90d)</th><th>Added by</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<!-- add a rule to the shared failure catalogue -->
+<dialog id="ruleDlg">
+  <h3>Add a rule to the catalogue</h3>
+  <p>Everyone's console will see this. Describe it as you would to whoever is on call next.</p>
+  <div id="ruleSourceWrap" class="note" style="display:none"></div>
+  <label class="sub" for="ruleTitle">Title &mdash; what happened, in one line</label>
+  <input type="text" id="ruleTitle" style="width:100%" autocomplete="off">
+  <label class="sub" for="rulePattern">Text to match in the error</label>
+  <input type="text" id="rulePattern" style="width:100%" class="mono" autocomplete="off" spellcheck="false">
+  <label class="sub" for="ruleCause">Cause &mdash; why it happens</label>
+  <textarea id="ruleCause" rows="3" style="width:100%"></textarea>
+  <label class="sub" for="ruleAction">Things to try &mdash; <strong>one per line</strong>, most likely first</label>
+  <textarea id="ruleAction" rows="5" style="width:100%"
+    placeholder="Check the account named in the message has a login on that server&#10;Check it is also a user in the target database&#10;Check whether the service account password changed"></textarea>
+  <div class="btn-row">
+    <button id="ruleCancel">Cancel</button>
+    <button id="ruleSave" class="primary">Add rule</button>
+  </div>
+</dialog>
+
+<!-- append fixes to an existing rule -->
+<dialog id="solutionDlg">
+  <h3>Add what worked</h3>
+  <p>
+    Appended to <span class="mono" id="solutionRule"></span> for everyone. Write it for whoever
+    is on call at 3am, not for yourself.
+  </p>
+  <label class="sub" for="solutionText">One per line</label>
+  <textarea id="solutionText" rows="5" style="width:100%"
+    placeholder="Restart the extract from the step after this one&#10;Check Run history for an earlier successful run today"></textarea>
+  <div class="btn-row">
+    <button id="solutionCancel">Cancel</button>
+    <button id="solutionSave" class="primary">Add</button>
+  </div>
+</dialog>
+
+<!-- confirmation for destructive / consequential actions -->
+<dialog id="confirmDlg">
+  <h3 id="dlgTitle">Confirm</h3>
+  <p id="dlgBody"></p>
+  <div id="dlgTypeWrap" hidden>
+    <p id="dlgTypePrompt" style="margin-bottom:6px">Type to confirm:</p>
+    <input type="text" id="dlgType" style="width:100%" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="btn-row">
+    <button id="dlgCancel">Cancel</button>
+    <button id="dlgOk" class="primary">Confirm</button>
+  </div>
+</dialog>
+
+<div id="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

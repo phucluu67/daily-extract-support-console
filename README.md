@@ -511,3 +511,4 @@ The extract's **data** does not live on the job server. `EPSI_ODS`, `EPSI_STAGIN
 raises a ServiceNow incident when this job fails. The two are complementary: that one
 pushes a ticket to management, this one is the operator's console. Neither modifies the
 extract.
+"# daily-extract-support-console" 
